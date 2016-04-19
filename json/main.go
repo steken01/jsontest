@@ -1,21 +1,27 @@
 package main
 
 import (
-	"crypto/md5"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/http"
-	"os"
+	"time"
 )
 
-func getReddit(subreddit string) []string {
+var after string = ""
+var times int = 10
+var afters string = ""
+var newAfter string = ""
 
+//Getreddit takes a subreddit adress and an after for pagination. return a slice of urls and string with the "after" and an error
+func getReddit(subreddit, after string) ([]string, string) {
+
+	fmt.Println(after)
 	var urlArray = []string{}
 	c := &http.Client{}
-	resp, err := c.Get(subreddit)
+	newsubreddit := subreddit + "?after=" + after
+	fmt.Println(newsubreddit)
+	resp, err := c.Get(newsubreddit)
 	if err != nil {
 		fmt.Println("there was an error")
 	} else {
@@ -28,6 +34,7 @@ func getReddit(subreddit string) []string {
 		if err != nil {
 			fmt.Println("error getting images", err)
 		}
+		newAfter = s.Data.After
 		fmt.Println("entering forloop now")
 		for _, v := range s.Data.Children {
 
@@ -35,7 +42,7 @@ func getReddit(subreddit string) []string {
 			fmt.Printf("Appended %s to array\n", v.Data.URL)
 		}
 	}
-	return urlArray
+	return urlArray, newAfter
 }
 
 func getImages(body []byte) (*RedditJson, error) {
@@ -47,11 +54,12 @@ func getImages(body []byte) (*RedditJson, error) {
 	return s, err
 }
 
+/*
 func downloadImages(s []string) {
 	// loop over the slice of strings
 	for _, v := range s {
 		//chop the slice to create the filename
-		filename := "/downloads/" + GetMD5Hash(v) + string(v[len(v)-4])
+		filename := GetMD5Hash(v) + v[len(v)-4:]
 		//create a file for writing returnin a pointer to a writable file
 		out, err := os.Create(filename)
 		if err != nil {
@@ -72,12 +80,28 @@ func downloadImages(s []string) {
 		}
 	}
 }
+
 func GetMD5Hash(text string) string {
 	hasher := md5.New()
 	hasher.Write([]byte(text))
 	return hex.EncodeToString(hasher.Sum(nil))
 }
+*/
 func main() {
-	res := getReddit("http://www.reddit.com/r/funny.json")
-	downloadImages(res)
+	getAll(after, times)
+
+}
+func getAll(after string, t int) ([]string, string) {
+	resultSlice := []string{}
+	for count := 0; count < t; count++ {
+
+		res, after := getReddit("http://www.reddit.com/r/funny.json", afters)
+		for _, value := range res {
+			resultSlice = append(resultSlice, value)
+		}
+		afters = after
+		wait := time.Duration(6) * time.Second
+		time.Sleep(wait)
+	}
+	return resultSlice, afters
 }
